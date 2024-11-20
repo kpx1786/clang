@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -21,6 +21,10 @@ jobs:
     - name: Build LLVM
       run: |
         docker run --rm -v ${{ github.workspace }}:/workspace termux/package-builder:latest bash -c '
+          # 安装必要的构建工具
+          apt update
+          apt install -y cmake ninja-build python3 git
+
           cd /workspace
           
           # 1. Clone LLVM
