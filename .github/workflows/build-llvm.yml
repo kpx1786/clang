@@ -123,10 +123,6 @@ jobs:
         git clone --depth=1 https://github.com/termux/termux-packages.git
         cd termux-packages
         
-        # 检查目录结构
-        ls -la scripts/
-        find . -name "termux_step_setup_build_order.sh"
-        
         # 配置 termux.properties
         cat > termux.properties << EOF
         TERMUX_APP_PACKAGE=com.termux
@@ -137,33 +133,21 @@ jobs:
         TERMUX_PKG_BUILD_IN_SRC=true
         EOF
         
-        # 尝试禁用 swift
-        if [ -f "scripts/build/termux_step_setup_build_order.sh" ]; then
-          sed -i 's/swift-sdk-aarch64//g' scripts/build/termux_step_setup_build_order.sh
-        elif [ -f "scripts/build-package.sh" ]; then
-          sed -i 's/swift-sdk-aarch64//g' scripts/build-package.sh
-        fi
-        
-        # 如果存在 swift 包目录，直接删除
-        if [ -d "packages/swift" ]; then
-          rm -rf packages/swift
-        fi
-        
         # 运行设置脚本
         ./scripts/setup-ubuntu.sh || true
         
         # 创建 LLVM 包目录和构建脚本
-        mkdir -p packages/llvm-18
-        cat > packages/llvm-18/build.sh << 'EOF'
+        mkdir -p packages/llvm-19
+        cat > packages/llvm-19/build.sh << 'EOF'
         TERMUX_PKG_HOMEPAGE=https://clang.llvm.org/
-        TERMUX_PKG_DESCRIPTION="LLVM 18 toolchain for Termux"
+        TERMUX_PKG_DESCRIPTION="LLVM 19 toolchain for Termux"
         TERMUX_PKG_LICENSE="Apache-2.0"
         TERMUX_PKG_MAINTAINER="@termux"
-        _PKG_MAJOR_VERSION=18
-        TERMUX_PKG_VERSION=${_PKG_MAJOR_VERSION}.1.1
+        _PKG_MAJOR_VERSION=19
+        TERMUX_PKG_VERSION=${_PKG_MAJOR_VERSION}.1.4
         TERMUX_PKG_REVISION=1
         TERMUX_PKG_SRCURL=https://github.com/llvm/llvm-project/releases/download/llvmorg-${TERMUX_PKG_VERSION}/llvm-project-${TERMUX_PKG_VERSION}.src.tar.xz
-        TERMUX_PKG_SHA256=c56be5e9c5f3d3c750d5718332cae127403df852c3685f0ccd765531455e5e04
+        TERMUX_PKG_SHA256=0b4af3a3b6c8cb5d0bfe42c1c0e99c8c91e8c30f96d38f93477c1ed0c4c4f13e
         TERMUX_PKG_DEPENDS="libc++, ncurses, zlib"
         TERMUX_PKG_BUILD_DEPENDS="binutils-libs, libffi-static, zlib-static"
         TERMUX_PKG_PROVIDES="clang-${_PKG_MAJOR_VERSION}, llvm-${_PKG_MAJOR_VERSION}"
@@ -185,14 +169,14 @@ jobs:
           
           TERMUX_PKG_EXTRA_CONFIGURE_ARGS+="
             -DLLVM_TARGET_ARCH=$LLVM_TARGET_ARCH
-            -DLLVM_TARGETS_TO_BUILD=ARM;AArch64;X86
+            -DLLVM_TARGETS_TO_BUILD=ARM;AArch64;X86;WebAssembly
             -DLLVM_HOST_TRIPLE=$LLVM_DEFAULT_TARGET_TRIPLE
             -DLLVM_BUILD_LLVM_DYLIB=ON
             -DLLVM_LINK_LLVM_DYLIB=ON
             -DCLANG_DEFAULT_LINKER=lld
             -DCLANG_DEFAULT_CXX_STDLIB=libc++
             -DLLVM_ENABLE_PROJECTS=clang;lld;polly
-            -DLLVM_ENABLE_RUNTIMES=libcxx;libcxxabi;libunwind
+            -DLLVM_ENABLE_RUNTIMES=compiler-rt;libcxx;libcxxabi;libunwind
             -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON
             -DLLVM_ENABLE_ASSERTIONS=OFF
             -DLLVM_ENABLE_FFI=ON
@@ -218,13 +202,13 @@ jobs:
         EOF
         
         # 设置执行权限
-        chmod +x packages/llvm-18/build.sh
+        chmod +x packages/llvm-19/build.sh
         
         # 构建包
-        TERMUX_DISABLE_SWIFT=true ./build-package.sh -a aarch64 -f llvm-18
+        TERMUX_DISABLE_SWIFT=true ./build-package.sh -a aarch64 -f llvm-19
         
         # 检查构建结果
-        if [ ! -f "debs/llvm-18"*.deb ]; then
+        if [ ! -f "debs/llvm-19"*.deb ]; then
           echo "Build failed: No package was created"
           exit 1
         fi
@@ -233,13 +217,13 @@ jobs:
       if: success()
       run: |
         mkdir -p artifacts
-        cp termux-packages/debs/llvm-18*.deb artifacts/
+        cp termux-packages/debs/llvm-19*.deb artifacts/
         
     - name: Upload artifacts
       if: success()
       uses: actions/upload-artifact@v3
       with:
-        name: llvm-18-clang-termux-aarch64
+        name: llvm-19-clang-termux-aarch64
         path: artifacts/*.deb
         retention-days: 5
 
