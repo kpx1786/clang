@@ -29,7 +29,7 @@ jobs:
     
     - name: Build Clang
       env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
       run: |
         # 安装基本依赖
         sudo apt-get update
@@ -48,12 +48,16 @@ jobs:
         git clone https://github.com/termux/termux-packages.git
         cd termux-packages
         
-        # 设置 NDK 路径
-        echo "TERMUX_ANDROID_HOME=$ANDROID_NDK_HOME" >> termux.properties
-        echo "TERMUX_NDK_VERSION=26" >> termux.properties
+        # 创建并配置 termux.properties
+        cat > termux.properties << EOF
+        TERMUX_APP_PACKAGE=com.termux
+        TERMUX_PREFIX=/data/data/com.termux/files/usr
+        TERMUX_ANDROID_HOME=${NDK}
+        TERMUX_NDK_VERSION=26
+        EOF
         
-        # 安装 tree-sitter-cli
-        cargo install tree-sitter-cli || true
+        # 显示配置文件内容
+        cat termux.properties
         
         # 运行 setup 脚本
         ./scripts/setup-ubuntu.sh || true
@@ -81,9 +85,9 @@ jobs:
         # 设置执行权限
         chmod +x packages/llvm/build.sh
         
-        # 显示环境变量
-        echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-        ls -la $ANDROID_NDK_HOME
+        # 显示环境变量和目录结构
+        echo "NDK=$NDK"
+        ls -la $NDK
         
         # 构建 LLVM/Clang
         ./build-package.sh -a arm64 -f llvm
