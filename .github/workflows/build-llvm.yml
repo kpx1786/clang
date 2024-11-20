@@ -18,7 +18,7 @@ jobs:
       uses: nttld/setup-ndk@v1
       id: setup-ndk
       with:
-        ndk-version: r26b
+        ndk-version: r27c  # 更新到 27c 版本
         add-to-path: false
 
     - name: Install Rust and Cargo
@@ -53,13 +53,13 @@ jobs:
         TERMUX_APP_PACKAGE=com.termux
         TERMUX_PREFIX=/data/data/com.termux/files/usr
         TERMUX_ANDROID_HOME=${NDK}
-        TERMUX_NDK_VERSION=26
+        TERMUX_NDK_VERSION=27
         EOF
         
         # 显示配置文件内容
         cat termux.properties
         
-        # 运行 setup 脚本
+        # 运行 setup 脚本（忽略错误）
         ./scripts/setup-ubuntu.sh || true
         
         # 确保 llvm 包目录存在
