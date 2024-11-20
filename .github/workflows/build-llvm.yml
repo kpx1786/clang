@@ -94,28 +94,28 @@ jobs:
         
         # 处理 libc++_shared.so
         NDK_SYSROOT="${NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-        mkdir -p "${NDK_SYSROOT}/usr/lib/arm64-linux-android/"
+        mkdir -p "${NDK_SYSROOT}/usr/lib/aarch64-linux-android/"
         
         # 从多个可能的位置查找并复制 libc++_shared.so
         POSSIBLE_PATHS=(
           "${NDK}/toolchains/llvm/prebuilt/linux-x86_64/lib64"
           "${NDK}/toolchains/llvm/prebuilt/linux-x86_64/lib"
-          "${NDK}/toolchains/llvm/prebuilt/linux-x86_64/runtimes/arm64-v8a"
+          "${NDK}/toolchains/llvm/prebuilt/linux-x86_64/runtimes/aarch64"
           "${NDK}/sources/cxx-stl/llvm-libc++/libs/arm64-v8a"
         )
         
         for path in "${POSSIBLE_PATHS[@]}"; do
           if [ -f "${path}/libc++_shared.so" ]; then
             echo "Found libc++_shared.so in ${path}"
-            cp "${path}/libc++_shared.so" "${NDK_SYSROOT}/usr/lib/arm64-linux-android/"
+            cp "${path}/libc++_shared.so" "${NDK_SYSROOT}/usr/lib/aarch64-linux-android/"
             break
           fi
         done
         
         # 如果在 NDK 中找不到，尝试从 termux-packages 仓库下载
-        if [ ! -f "${NDK_SYSROOT}/usr/lib/arm64-linux-android/libc++_shared.so" ]; then
+        if [ ! -f "${NDK_SYSROOT}/usr/lib/aarch64-linux-android/libc++_shared.so" ]; then
           echo "Attempting to download libc++_shared.so from known good source"
-          curl -L -o "${NDK_SYSROOT}/usr/lib/arm64-linux-android/libc++_shared.so" \
+          curl -L -o "${NDK_SYSROOT}/usr/lib/aarch64-linux-android/libc++_shared.so" \
             "https://github.com/termux/termux-packages/raw/master/ndk-patches/libc++_shared.so"
         fi
         
@@ -139,9 +139,9 @@ jobs:
         
         # 尝试禁用 swift
         if [ -f "scripts/build/termux_step_setup_build_order.sh" ]; then
-          sed -i 's/swift-sdk-arm64//g' scripts/build/termux_step_setup_build_order.sh
+          sed -i 's/swift-sdk-aarch64//g' scripts/build/termux_step_setup_build_order.sh
         elif [ -f "scripts/build-package.sh" ]; then
-          sed -i 's/swift-sdk-arm64//g' scripts/build-package.sh
+          sed -i 's/swift-sdk-aarch64//g' scripts/build-package.sh
         fi
         
         # 如果存在 swift 包目录，直接删除
@@ -175,7 +175,7 @@ jobs:
           # 确保 libc++_shared.so 存在
           if [ ! -f "${TERMUX_PREFIX}/lib/libc++_shared.so" ]; then
             mkdir -p "${TERMUX_PREFIX}/lib/"
-            cp "${TERMUX_ANDROID_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm64-linux-android/libc++_shared.so" "${TERMUX_PREFIX}/lib/"
+            cp "${TERMUX_ANDROID_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "${TERMUX_PREFIX}/lib/"
           fi
           
           TERMUX_LLVM_BUILD_CONFIGURATION=Release
@@ -221,7 +221,7 @@ jobs:
         chmod +x packages/llvm-18/build.sh
         
         # 构建包
-        TERMUX_DISABLE_SWIFT=true ./build-package.sh -a arm64 -f llvm-18
+        TERMUX_DISABLE_SWIFT=true ./build-package.sh -a aarch64 -f llvm-18
         
         # 检查构建结果
         if [ ! -f "debs/llvm-18"*.deb ]; then
@@ -239,7 +239,7 @@ jobs:
       if: success()
       uses: actions/upload-artifact@v3
       with:
-        name: llvm-18-clang-termux-arm64
+        name: llvm-18-clang-termux-aarch64
         path: artifacts/*.deb
         retention-days: 5
 
