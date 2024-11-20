@@ -21,14 +21,13 @@ jobs:
         ndk-version: r27c
         add-to-path: false
 
-    # 添加缓存支持
     - name: Cache build dependencies
       uses: actions/cache@v3
       with:
         path: |
           ~/.cargo
+          ~/.termux-build
           termux-packages/debs
-          termux-packages/build-cache
         key: ${{ runner.os }}-build-${{ hashFiles('**/build.sh') }}
         restore-keys: |
           ${{ runner.os }}-build-
@@ -42,12 +41,12 @@ jobs:
     - name: Build Clang
       env:
         NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
-        TERMUX_MAKE_PROCESSES: 2  # 限制并行编译数量
+        TERMUX_MAKE_PROCESSES: 2
         TERMUX_PKG_BUILD_IN_SRC: true
       run: |
-        set -e  # 遇到错误立即退出
+        set -ex  # 启用错误检查和命令回显
         
-        # 安装依赖
+        echo "Setting up system dependencies..."
         sudo apt-get update
         sudo apt-get install -y \
           build-essential \
@@ -59,30 +58,68 @@ jobs:
           python3-pip \
           ninja-build \
           cmake \
-          ccache
+          ccache \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libxml2-dev \
+          libffi-dev \
+          libedit-dev \
+          swig \
+          python3-dev \
+          npm \
+          gperf \
+          ruby \
+          help2man \
+          texinfo \
+          libtool \
+          autoconf \
+          automake \
+          bison \
+          flex \
+          g++-multilib \
+          gettext
 
-        # 设置目录结构
-        sudo mkdir -p /data/data/com.termux/files/usr
-        sudo chmod -R 777 /data/data
+        echo "Installing tree-sitter-cli..."
+        sudo npm install -g tree-sitter-cli
         
-        # 克隆仓库
+        echo "Setting up directory structure..."
+        sudo mkdir -p /data
+        sudo mkdir -p /data/data
+        sudo mkdir -p /data/data/com.termux
+        sudo mkdir -p /data/data/com.termux/files
+        sudo mkdir -p /data/data/com.termux/files/usr
+        sudo mkdir -p /data/data/com.termux/files/usr/include
+        sudo mkdir -p /data/data/com.termux/files/usr/lib
+        sudo mkdir -p /data/data/com.termux/files/usr/bin
+        sudo chmod -R 777 /data
+        
+        echo "Setting up Termux build environment..."
+        mkdir -p $HOME/.termux-build/_cache
+        mkdir -p $HOME/.termux-build/_build
+        mkdir -p $HOME/.termux-build/android-tools
+        chmod -R 777 $HOME/.termux-build
+        
+        echo "Cloning termux-packages..."
         git clone --depth=1 https://github.com/termux/termux-packages.git
         cd termux-packages
         
-        # 配置 termux.properties
+        echo "Configuring termux.properties..."
         cat > termux.properties << EOF
         TERMUX_APP_PACKAGE=com.termux
         TERMUX_PREFIX=/data/data/com.termux/files/usr
         TERMUX_ANDROID_HOME=${NDK}
         TERMUX_NDK_VERSION=27
         TERMUX_MAKE_PROCESSES=2
+        TERMUX_PKG_BUILD_IN_SRC=true
         EOF
         
-        # 运行设置脚本
+        echo "Running setup script..."
         ./scripts/setup-ubuntu.sh || true
         
-        # 创建并配置 LLVM 构建脚本
+        echo "Creating LLVM package directory..."
         mkdir -p packages/llvm-18
+        
+        echo "Creating build.sh..."
         cat > packages/llvm-18/build.sh << 'EOF'
         TERMUX_PKG_HOMEPAGE=https://clang.llvm.org/
         TERMUX_PKG_DESCRIPTION="LLVM 18 toolchain for Termux"
@@ -101,10 +138,13 @@ jobs:
         TERMUX_PKG_GROUPS="base-devel"
 
         termux_step_pre_configure() {
+          # Build configuration:
           TERMUX_LLVM_BUILD_CONFIGURATION=Release
+          
           LLVM_DEFAULT_TARGET_TRIPLE=$TERMUX_HOST_PLATFORM
           LLVM_TARGET_ARCH=$TERMUX_ARCH
           
+          # Add flags for LLVM build:
           TERMUX_PKG_EXTRA_CONFIGURE_ARGS+="
             -DLLVM_TARGET_ARCH=$LLVM_TARGET_ARCH
             -DLLVM_TARGETS_TO_BUILD=ARM;AArch64;X86
@@ -139,12 +179,13 @@ jobs:
         }
         EOF
         
+        echo "Setting execute permissions..."
         chmod +x packages/llvm-18/build.sh
         
-        # 构建包
+        echo "Building package..."
         ./build-package.sh -a arm64 -f llvm-18
         
-        # 检查构建结果
+        echo "Checking build results..."
         if [ ! -f "debs/llvm-18"*.deb ]; then
           echo "Build failed: No package was created"
           exit 1
@@ -162,7 +203,7 @@ jobs:
       with:
         name: llvm-18-clang-termux-arm64
         path: artifacts/*.deb
-        retention-days: 5  # 设置保留时间
+        retention-days: 5
 
     - name: Cleanup
       if: always()
