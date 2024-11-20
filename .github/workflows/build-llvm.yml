@@ -147,7 +147,7 @@ jobs:
         TERMUX_PKG_VERSION=${_PKG_MAJOR_VERSION}.1.4
         TERMUX_PKG_REVISION=1
         TERMUX_PKG_SRCURL=https://github.com/llvm/llvm-project/releases/download/llvmorg-${TERMUX_PKG_VERSION}/llvm-project-${TERMUX_PKG_VERSION}.src.tar.xz
-        TERMUX_PKG_SHA256=0b4af3a3b6c8cb5d0bfe42c1c0e99c8c91e8c30f96d38f93477c1ed0c4c4f13e
+        TERMUX_PKG_SHA256=3aa2d2d2c7553164ad5c6f3b932b31816e422635e18620c9349a7da95b98d811
         TERMUX_PKG_DEPENDS="libc++, ncurses, zlib"
         TERMUX_PKG_BUILD_DEPENDS="binutils-libs, libffi-static, zlib-static"
         TERMUX_PKG_PROVIDES="clang-${_PKG_MAJOR_VERSION}, llvm-${_PKG_MAJOR_VERSION}"
