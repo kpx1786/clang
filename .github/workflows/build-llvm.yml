@@ -18,7 +18,7 @@ jobs:
       uses: nttld/setup-ndk@v1
       id: setup-ndk
       with:
-        ndk-version: r27c
+        ndk-version: r25c  # 改用 r25c 版本，它有更稳定的目录结构
         add-to-path: false
 
     - name: Cache build dependencies
@@ -92,6 +92,13 @@ jobs:
         mkdir -p $HOME/.termux-build/{_cache,_build,android-tools}
         chmod -R 777 $HOME/.termux-build
         
+        # 确保 NDK 中的 libc++ 文件存在并可访问
+        NDK_SYSROOT="${NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+        mkdir -p "${NDK_SYSROOT}/usr/lib/arm64-linux-android/"
+        
+        # 查找并复制 libc++_shared.so
+        find "${NDK}" -name "libc++_shared.so" -type f -exec cp {} "${NDK_SYSROOT}/usr/lib/arm64-linux-android/" \;
+        
         # 克隆并配置 termux-packages
         git clone --depth=1 https://github.com/termux/termux-packages.git
         cd termux-packages
@@ -105,7 +112,7 @@ jobs:
         TERMUX_APP_PACKAGE=com.termux
         TERMUX_PREFIX=/data/data/com.termux/files/usr
         TERMUX_ANDROID_HOME=${NDK}
-        TERMUX_NDK_VERSION=27
+        TERMUX_NDK_VERSION=25
         TERMUX_MAKE_PROCESSES=2
         TERMUX_PKG_BUILD_IN_SRC=true
         EOF
@@ -145,6 +152,12 @@ jobs:
         TERMUX_PKG_GROUPS="base-devel"
 
         termux_step_pre_configure() {
+          # 确保 libc++_shared.so 存在
+          if [ ! -f "${TERMUX_PREFIX}/lib/libc++_shared.so" ]; then
+            mkdir -p "${TERMUX_PREFIX}/lib/"
+            cp "${TERMUX_ANDROID_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm64-linux-android/libc++_shared.so" "${TERMUX_PREFIX}/lib/"
+          fi
+          
           TERMUX_LLVM_BUILD_CONFIGURATION=Release
           
           LLVM_DEFAULT_TARGET_TRIPLE=$TERMUX_HOST_PLATFORM
