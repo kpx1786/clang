@@ -1,4 +1,4 @@
-name: Build LLVM for Android
+name: Build Latest Clang for Termux
 
 on:
   push:
@@ -14,72 +14,43 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup Docker
+    - name: Build Clang
       run: |
-        docker pull termux/package-builder:latest
+        # 克隆 Termux 的包构建仓库
+        git clone https://github.com/termux/termux-packages.git
+        cd termux-packages
         
-    - name: Build LLVM
-      run: |
-        docker run --rm -v ${{ github.workspace }}:/workspace termux/package-builder:latest bash -c '
-          # 切换到 root 用户
-          sudo -s
-          
-          # 安装必要的构建工具
-          apt update
-          apt install -y cmake ninja-build python3 git
+        # 设置构建环境
+        ./scripts/setup-ubuntu.sh
+        
+        # 修改 LLVM 包配置以使用最新版本
+        sed -i 's/TERMUX_PKG_VERSION=.*/TERMUX_PKG_VERSION=18.1.1/' packages/llvm/build.sh
+        sed -i 's/TERMUX_PKG_REVISION=.*/TERMUX_PKG_REVISION=1/' packages/llvm/build.sh
+        
+        # 更新源码下载链接
+        sed -i 's|TERMUX_PKG_SRCURL=.*|TERMUX_PKG_SRCURL=https://github.com/llvm/llvm-project/releases/download/llvmorg-${TERMUX_PKG_VERSION}/llvm-project-${TERMUX_PKG_VERSION}.src.tar.xz|' packages/llvm/build.sh
+        
+        # 构建 LLVM/Clang
+        ./build-package.sh -a arm64 -f llvm
 
-          cd /workspace
-          
-          # 1. Clone LLVM
-          git clone --filter=blob:none --sparse https://github.com/llvm/llvm-project.git
-          cd llvm-project
-          
-          # 2. Sparse checkout
-          git sparse-checkout init --cone
-          git sparse-checkout set clang llvm cmake
-          
-          # 3. Create build directory
-          mkdir build
-          cd build
-          
-          # 4. Configure CMake
-          cmake ../llvm \
-            -DLLVM_ENABLE_PROJECTS=clang \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_TARGETS_TO_BUILD="AArch64" \
-            -DLLVM_ENABLE_UNITTEST=OFF \
-            -DLLVM_ENABLE_BENCHMARKS=OFF \
-            -DLLVM_INCLUDE_BENCHMARKS=OFF \
-            -DLLVM_INCLUDE_TESTS=OFF \
-            -DCMAKE_INSTALL_PREFIX=/workspace/llvm-install \
-            -DCMAKE_SYSTEM_NAME=Android \
-            -DCMAKE_SYSTEM_VERSION=24 \
-            -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a
-          
-          # 5. Build
-          cmake --build . -j$(nproc)
-          
-          # 6. Install
-          cmake --install .
-        '
-        
     - name: Package artifacts
       run: |
-        tar -czf llvm-android-arm64.tar.gz llvm-install/
+        mkdir -p artifacts
+        cp termux-packages/debs/llvm*.deb artifacts/
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: llvm-android-arm64
-        path: llvm-android-arm64.tar.gz
+        name: llvm-clang-termux-arm64
+        path: artifacts/*.deb
         
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v1
       with:
-        files: llvm-android-arm64.tar.gz
+        files: artifacts/*.deb
         tag_name: v${{ github.run_number }}
-        name: LLVM for Android ARM64 v${{ github.run_number }}
+        name: Latest Clang for Termux ARM64 v${{ github.run_number }}
         draft: false
         prerelease: false
       env:
