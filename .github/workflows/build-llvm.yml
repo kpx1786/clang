@@ -21,6 +21,9 @@ jobs:
     - name: Build LLVM
       run: |
         docker run --rm -v ${{ github.workspace }}:/workspace termux/package-builder:latest bash -c '
+          # 切换到 root 用户
+          sudo -s
+          
           # 安装必要的构建工具
           apt update
           apt install -y cmake ninja-build python3 git
