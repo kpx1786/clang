@@ -18,7 +18,7 @@ jobs:
       uses: nttld/setup-ndk@v1
       id: setup-ndk
       with:
-        ndk-version: r25c  # 改用 r25c 版本，它有更稳定的目录结构
+        ndk-version: r27c
         add-to-path: false
 
     - name: Cache build dependencies
@@ -92,12 +92,32 @@ jobs:
         mkdir -p $HOME/.termux-build/{_cache,_build,android-tools}
         chmod -R 777 $HOME/.termux-build
         
-        # 确保 NDK 中的 libc++ 文件存在并可访问
+        # 处理 libc++_shared.so
         NDK_SYSROOT="${NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
         mkdir -p "${NDK_SYSROOT}/usr/lib/arm64-linux-android/"
         
-        # 查找并复制 libc++_shared.so
-        find "${NDK}" -name "libc++_shared.so" -type f -exec cp {} "${NDK_SYSROOT}/usr/lib/arm64-linux-android/" \;
+        # 从多个可能的位置查找并复制 libc++_shared.so
+        POSSIBLE_PATHS=(
+          "${NDK}/toolchains/llvm/prebuilt/linux-x86_64/lib64"
+          "${NDK}/toolchains/llvm/prebuilt/linux-x86_64/lib"
+          "${NDK}/toolchains/llvm/prebuilt/linux-x86_64/runtimes/arm64-v8a"
+          "${NDK}/sources/cxx-stl/llvm-libc++/libs/arm64-v8a"
+        )
+        
+        for path in "${POSSIBLE_PATHS[@]}"; do
+          if [ -f "${path}/libc++_shared.so" ]; then
+            echo "Found libc++_shared.so in ${path}"
+            cp "${path}/libc++_shared.so" "${NDK_SYSROOT}/usr/lib/arm64-linux-android/"
+            break
+          fi
+        done
+        
+        # 如果在 NDK 中找不到，尝试从 termux-packages 仓库下载
+        if [ ! -f "${NDK_SYSROOT}/usr/lib/arm64-linux-android/libc++_shared.so" ]; then
+          echo "Attempting to download libc++_shared.so from known good source"
+          curl -L -o "${NDK_SYSROOT}/usr/lib/arm64-linux-android/libc++_shared.so" \
+            "https://github.com/termux/termux-packages/raw/master/ndk-patches/libc++_shared.so"
+        fi
         
         # 克隆并配置 termux-packages
         git clone --depth=1 https://github.com/termux/termux-packages.git
@@ -112,7 +132,7 @@ jobs:
         TERMUX_APP_PACKAGE=com.termux
         TERMUX_PREFIX=/data/data/com.termux/files/usr
         TERMUX_ANDROID_HOME=${NDK}
-        TERMUX_NDK_VERSION=25
+        TERMUX_NDK_VERSION=27
         TERMUX_MAKE_PROCESSES=2
         TERMUX_PKG_BUILD_IN_SRC=true
         EOF
