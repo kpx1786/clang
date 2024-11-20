@@ -96,6 +96,10 @@ jobs:
         git clone --depth=1 https://github.com/termux/termux-packages.git
         cd termux-packages
         
+        # 检查目录结构
+        ls -la scripts/
+        find . -name "termux_step_setup_build_order.sh"
+        
         # 配置 termux.properties
         cat > termux.properties << EOF
         TERMUX_APP_PACKAGE=com.termux
@@ -106,8 +110,17 @@ jobs:
         TERMUX_PKG_BUILD_IN_SRC=true
         EOF
         
-        # 禁用 swift 相关包
-        sed -i 's/swift-sdk-arm64//g' scripts/build/termux_step_setup_build_order.sh
+        # 尝试禁用 swift
+        if [ -f "scripts/build/termux_step_setup_build_order.sh" ]; then
+          sed -i 's/swift-sdk-arm64//g' scripts/build/termux_step_setup_build_order.sh
+        elif [ -f "scripts/build-package.sh" ]; then
+          sed -i 's/swift-sdk-arm64//g' scripts/build-package.sh
+        fi
+        
+        # 如果存在 swift 包目录，直接删除
+        if [ -d "packages/swift" ]; then
+          rm -rf packages/swift
+        fi
         
         # 运行设置脚本
         ./scripts/setup-ubuntu.sh || true
