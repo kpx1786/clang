@@ -43,10 +43,11 @@ jobs:
         NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
         TERMUX_MAKE_PROCESSES: 2
         TERMUX_PKG_BUILD_IN_SRC: true
+        TERMUX_DISABLE_SWIFT: true
       run: |
-        set -ex  # 启用错误检查和命令回显
+        set -ex
         
-        echo "Setting up system dependencies..."
+        # 系统依赖
         sudo apt-get update
         sudo apt-get install -y \
           build-essential \
@@ -77,33 +78,25 @@ jobs:
           bison \
           flex \
           g++-multilib \
-          gettext
-
-        echo "Installing tree-sitter-cli..."
-        sudo npm install -g tree-sitter-cli
+          gettext \
+          libwxgtk3.0-gtk3-dev
         
-        echo "Setting up directory structure..."
-        sudo mkdir -p /data
-        sudo mkdir -p /data/data
-        sudo mkdir -p /data/data/com.termux
-        sudo mkdir -p /data/data/com.termux/files
-        sudo mkdir -p /data/data/com.termux/files/usr
-        sudo mkdir -p /data/data/com.termux/files/usr/include
-        sudo mkdir -p /data/data/com.termux/files/usr/lib
-        sudo mkdir -p /data/data/com.termux/files/usr/bin
+        # 安装 tree-sitter
+        cargo install tree-sitter-cli
+        
+        # 创建必要的目录
+        sudo mkdir -p /data/data/com.termux/files/usr/{include,lib,bin}
         sudo chmod -R 777 /data
         
-        echo "Setting up Termux build environment..."
-        mkdir -p $HOME/.termux-build/_cache
-        mkdir -p $HOME/.termux-build/_build
-        mkdir -p $HOME/.termux-build/android-tools
+        # 设置构建环境
+        mkdir -p $HOME/.termux-build/{_cache,_build,android-tools}
         chmod -R 777 $HOME/.termux-build
         
-        echo "Cloning termux-packages..."
+        # 克隆并配置 termux-packages
         git clone --depth=1 https://github.com/termux/termux-packages.git
         cd termux-packages
         
-        echo "Configuring termux.properties..."
+        # 配置 termux.properties
         cat > termux.properties << EOF
         TERMUX_APP_PACKAGE=com.termux
         TERMUX_PREFIX=/data/data/com.termux/files/usr
@@ -113,13 +106,14 @@ jobs:
         TERMUX_PKG_BUILD_IN_SRC=true
         EOF
         
-        echo "Running setup script..."
+        # 禁用 swift 相关包
+        sed -i 's/swift-sdk-arm64//g' scripts/build/termux_step_setup_build_order.sh
+        
+        # 运行设置脚本
         ./scripts/setup-ubuntu.sh || true
         
-        echo "Creating LLVM package directory..."
+        # 创建 LLVM 包目录和构建脚本
         mkdir -p packages/llvm-18
-        
-        echo "Creating build.sh..."
         cat > packages/llvm-18/build.sh << 'EOF'
         TERMUX_PKG_HOMEPAGE=https://clang.llvm.org/
         TERMUX_PKG_DESCRIPTION="LLVM 18 toolchain for Termux"
@@ -138,13 +132,11 @@ jobs:
         TERMUX_PKG_GROUPS="base-devel"
 
         termux_step_pre_configure() {
-          # Build configuration:
           TERMUX_LLVM_BUILD_CONFIGURATION=Release
           
           LLVM_DEFAULT_TARGET_TRIPLE=$TERMUX_HOST_PLATFORM
           LLVM_TARGET_ARCH=$TERMUX_ARCH
           
-          # Add flags for LLVM build:
           TERMUX_PKG_EXTRA_CONFIGURE_ARGS+="
             -DLLVM_TARGET_ARCH=$LLVM_TARGET_ARCH
             -DLLVM_TARGETS_TO_BUILD=ARM;AArch64;X86
@@ -179,13 +171,13 @@ jobs:
         }
         EOF
         
-        echo "Setting execute permissions..."
+        # 设置执行权限
         chmod +x packages/llvm-18/build.sh
         
-        echo "Building package..."
-        ./build-package.sh -a arm64 -f llvm-18
+        # 构建包
+        TERMUX_DISABLE_SWIFT=true ./build-package.sh -a arm64 -f llvm-18
         
-        echo "Checking build results..."
+        # 检查构建结果
         if [ ! -f "debs/llvm-18"*.deb ]; then
           echo "Build failed: No package was created"
           exit 1
