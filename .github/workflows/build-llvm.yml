@@ -20,8 +20,67 @@ jobs:
         git clone https://github.com/termux/termux-packages.git
         cd termux-packages
         
+        # 手动安装依赖
+        sudo apt-get update
+        sudo apt-get install -y \
+          android-sdk-build-tools \
+          asciidoc \
+          asciidoctor \
+          autoconf \
+          automake \
+          bison \
+          build-essential \
+          curl \
+          devscripts \
+          docbook-to-man \
+          docbook-utils \
+          ed \
+          flex \
+          g++-multilib \
+          gawk \
+          gcc-multilib \
+          git \
+          gnupg \
+          gperf \
+          help2man \
+          intltool \
+          jq \
+          libexpat1-dev \
+          libffi-dev \
+          libgc-dev \
+          libgmp-dev \
+          libgnustep-base-dev \
+          libjpeg-dev \
+          libltdl-dev \
+          libmpc-dev \
+          libmpfr-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libssl-dev \
+          libtool-bin \
+          libwxgtk3.0-gtk3-dev \
+          lzip \
+          m4 \
+          patchelf \
+          pkg-config \
+          python3-docutils \
+          python3-pip \
+          python3-setuptools \
+          python3-sphinx \
+          ruby \
+          scons \
+          texinfo \
+          unzip \
+          xfonts-utils \
+          xmlto \
+          zip \
+          zlib1g-dev
+
+        # 安装 tree-sitter-cli
+        cargo install tree-sitter-cli || true
+        
         # 设置构建环境
-        ./scripts/setup-ubuntu.sh
+        ./scripts/setup-ubuntu.sh || true
         
         # 修改 LLVM 包配置以使用最新版本
         sed -i 's/TERMUX_PKG_VERSION=.*/TERMUX_PKG_VERSION=18.1.1/' packages/llvm/build.sh
@@ -43,15 +102,3 @@ jobs:
       with:
         name: llvm-clang-termux-arm64
         path: artifacts/*.deb
-        
-    - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: artifacts/*.deb
-        tag_name: v${{ github.run_number }}
-        name: Latest Clang for Termux ARM64 v${{ github.run_number }}
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
